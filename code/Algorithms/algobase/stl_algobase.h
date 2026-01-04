@@ -127,7 +127,7 @@ pair<InputIterator1, InputIterator2> mismatch(InputIterator1 first1,
 
 template<class T>
 inline void swap(T &a, T &b) {
-  T temp = a;
+  T temp(a);
   a = b;
   b = temp;
 }

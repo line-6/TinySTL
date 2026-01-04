@@ -7,7 +7,7 @@
     "construct.h" 定义了construct() 和 destroy()， 负责对象的构造和析构.
     "alloc.h" 则负责内存空间的配置和释放
 */
-
+#pragma once
 #include <new>  // placement new
 
 #include "Utils/type_traits.h"
