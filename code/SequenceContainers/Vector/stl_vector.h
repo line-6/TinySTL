@@ -64,6 +64,7 @@ private:// allocate and construct aux functions
         size_type n = TinySTL::distance(first, last);
         iterator result = data_allocator::allocate(n);
         TinySTL::uninitialized_copy(first, last, result);
+        return result;
     }
 
     // 析构 + 释放内存
@@ -137,7 +138,10 @@ public: // interface for size and capacity
         swap(temp);
     }
 public: // compare operator
-
+    bool operator== (const vector&) const noexcept;
+    bool operator!= (const vector& rhs) const noexcept {
+        return !(*this == rhs);
+    }
 public: // push && pop
     void push_back(const value_type& value);
     void pop_back() {
@@ -151,11 +155,11 @@ public: // erase
 private: // aux_interface for insert
     void insert_aux(iterator, const value_type &);
     void fill_insert(iterator, size_type, const value_type &);
-public: // insert
-    
+public: // TODO : insert
+    iterator insert(iterator, const value_type &);
 private: // aux_interface for assign
 
-public: // assign
+public: // TODO: assign
 
 };
 
@@ -216,6 +220,31 @@ inline void vector<T, Alloc>::resize(size_type new_size, const value_type &value
     } else {
         fill_insert(end(), new_size - size(), value);
     }
+}
+
+template<class T, class Alloc>
+inline void vector<T, Alloc>::reserve(size_type new_capacity) {
+    if (new_capacity <= capacity()) return;
+    T *new_start = data_allocator::allocate(new_capacity);
+    T *new_finish = TinySTL::uninitialized_copy(start, finish, new_start);
+    destory_and_deallocate();
+    start = new_start;
+    finish = new_finish;
+    end_of_storage = start + new_capacity;
+}
+
+// compare
+template<class T, class Alloc>
+bool vector<T, Alloc>::operator==(const vector &rhs) const noexcept {
+    if (size() != rhs.size()) {
+    return false;
+  } else {
+    iterator ptr1 = start;
+    iterator ptr2 = rhs.start;
+    for (; ptr1 != finish && ptr2 != rhs.finish; ++ptr1, ++ptr2)
+      if (*ptr1 != *ptr2) return false;
+    return true;
+  }
 }
 
 // push
@@ -319,5 +348,17 @@ inline void vector<T, Alloc>::fill_insert(iterator position, size_type n,
     }
 }
 
+// insert
+template<class T, class Alloc>
+inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(
+    iterator position, const value_type &value) {
+  size_type n = position - begin();
+  if (finish != end_of_storage && position == end()) {
+    construct(finish, value);
+    ++finish;
+  } else
+    insert_aux(position, value);
+  return begin() + n;
+}
 
 }
