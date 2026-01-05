@@ -7,6 +7,7 @@
 #include "stl_iterator.h"
 #include "type_traits.h"
 #include <cstddef>
+#include <exception>
 #include <initializer_list>
 
 namespace TinySTL {
@@ -104,11 +105,37 @@ public:// ctor && dtor
     vector &operator= (vector &&) noexcept;
 
 public: // getter
+    const_iterator begin() const noexcept { return start; }
+    const_iterator end() const noexcept { return finish; }
+    const_reference front() const noexcept { return *begin(); }
+    const_reference back() const noexcept { return *(end() - 1); }
+    const_reference operator[](const size_type n) const noexcept {
+        return *(start + n); }
+    size_type size() const noexcept {
+        return static_cast<size_type>(finish - start);
+    }
+    size_type capacity() const noexcept {
+        return static_cast<size_type>(end_of_storage - start);
+    }
+    bool empty() const noexcept {
+        return start == finish;
+    }
 
 public: // setter
+    iterator begin() noexcept { return start; }
+    iterator end() noexcept { return finish; }
+    reference operator[](const size_type n) noexcept { return *(start + n); }
+    reference front() noexcept { return *begin(); }
+    reference back() noexcept { return *(end() - 1); }
 
 public: // interface for size and capacity
-
+    void resize(size_type, const value_type &);
+    void resize(size_type new_size) { resize(new_size, value_type()); }
+    void reserve(size_type);
+    void shrink_to_fit() noexcept {
+        vector temp(*this);
+        swap(temp);
+    }
 public: // compare operator
 
 public: // push && pop
@@ -118,11 +145,14 @@ public: // push && pop
         TinySTL::destroy(finish);
     }
 public: // erase
-
+    iterator erase(iterator, iterator);
+    iterator erase(iterator position) { return erase(position, position + 1); }
+    void clear() { erase(begin(), end()); }
 private: // aux_interface for insert
-
+    void insert_aux(iterator, const value_type &);
+    void fill_insert(iterator, size_type, const value_type &);
 public: // insert
-
+    
 private: // aux_interface for assign
 
 public: // assign
@@ -178,6 +208,16 @@ inline vector<T, Alloc> &vector<T, Alloc>::operator=(vector&& rhs) noexcept{
     return *this;
 }
 
+// interface for size and capacity
+template <class T, class Alloc>
+inline void vector<T, Alloc>::resize(size_type new_size, const value_type &value) {
+    if (new_size < size()) {
+        erase(begin() + new_size, end());
+    } else {
+        fill_insert(end(), new_size - size(), value);
+    }
+}
+
 // push
 template <class T, class Alloc>
 inline void vector<T, Alloc>::push_back(const value_type& value) {
@@ -185,7 +225,99 @@ inline void vector<T, Alloc>::push_back(const value_type& value) {
         TinySTL::construct(finish, value);
         ++finish;
     } else {
-        
+        insert_aux(end(), value);
     }
 }
+
+// erase
+template<class T, class Alloc>
+inline typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(
+    iterator first, iterator last) {
+    iterator i = TinySTL::copy(last, finish, first);
+    TinySTL::destroy(i, finish);
+    finish -= (last - first);
+    return first;
+}
+
+// aux_interface for insert
+template <class T, class Alloc>
+inline void vector<T, Alloc>::insert_aux(iterator position, const value_type &value) {
+    if (finish != end_of_storage) {// needn't expand
+        TinySTL::construct(finish, *(finish - 1));
+        ++ finish;
+        value_type value_copy = value;
+        TinySTL::copy_backward(position, finish - 2, finish - 1);
+        *position = value_copy;
+    } else {// expand
+        const size_type old_size = size();
+        const size_type new_size = 
+            old_size ? old_size * 2 : 1;
+        iterator new_start = data_allocator::allocate(new_size);
+        iterator new_finish = new_start;
+        try {
+            new_finish = TinySTL::uninitialized_copy(
+                start, position, new_start); // copy position-before segment
+            construct(new_finish, value);
+            ++new_finish;
+            new_finish = TinySTL::uninitialized_copy(
+                position, finish, new_finish); // copy position-after segment
+        } catch (std::exception &) {
+            // commit or rollback
+            destroy(new_start, new_finish);
+            data_allocator::deallocate(new_start, new_size);
+            throw;
+        }
+        destory_and_deallocate();
+        start = new_start;
+        finish = new_finish;
+        end_of_storage = new_start + new_size;
+    }
+}
+
+template <class T, class Alloc>
+inline void vector<T, Alloc>::fill_insert(iterator position, size_type n, 
+                                        const value_type &value) {
+    if (n <= 0) return;
+    if (static_cast<size_type>(end_of_storage - finish) >= n) {// needn't expand
+    value_type value_copy = value;
+    const size_type elems_after = finish - position;
+    iterator old_finish = finish;
+    if (elems_after > n) {
+      TinySTL::uninitialized_copy(finish - n, finish, finish);
+      finish += n;
+      TinySTL::copy_backward(position, old_finish - n, old_finish);
+      TinySTL::fill(position, position + n, value_copy);
+    } else {
+      TinySTL::uninitialized_fill_n(finish, n - elems_after,
+                                    value_copy);
+      finish += n - elems_after;
+      TinySTL::uninitialized_copy(position, old_finish, finish);
+      finish += elems_after;
+      TinySTL::fill(position, old_finish, value_copy);// complement
+    }
+  } else {// expand
+        const size_type old_size = size();
+        const size_type new_size = old_size + TinySTL::max(old_size, n);
+        iterator new_start = data_allocator::allocate(new_size);
+        iterator new_finish = new_start;
+        try {
+        new_finish =
+            TinySTL::uninitialized_copy(start, position, new_start);
+        new_finish =
+            TinySTL::uninitialized_fill_n(new_finish, n, value);
+        new_finish =
+            TinySTL::uninitialized_copy(position, finish, new_finish);
+        } catch (std::exception &) {
+        TinySTL::destroy(new_start, new_finish);
+        data_allocator::deallocate(new_start, new_size);
+        throw;
+        }
+        destory_and_deallocate();
+        start = new_start;
+        finish = new_finish;
+        end_of_storage = new_start + new_size;
+    }
+}
+
+
 }
