@@ -144,6 +144,20 @@ public:// push && pop
         erase(--temp);
     }
 
+public:// other list algorithm
+    void unique();
+    void splice(iterator pos, list &rhs) {
+        if (!rhs.empty()) transfer(pos, rhs.begin(), rhs.end());
+    }
+    void splice(iterator, list &, iterator);
+    void splice(iterator pos, list &, iterator first, iterator last) {
+        if (first != last) transfer(pos, first, last);
+    }
+    void merge(list &);
+    void reverse();
+    void sort();
+    void remove(const T &);
+
 };
 
 template <class T, class Alloc>
@@ -151,7 +165,7 @@ inline typename list<T, Alloc>::list_node *list<T, Alloc>::create_node(
     const T& value) {
     list_node *p = get_node();
     try {
-        TinySTL::construct(p, value);
+        TinySTL::construct(&p->data, value);
     } catch (std::exception) {
         put_node(p);
         throw;
@@ -178,6 +192,12 @@ inline void list<T, Alloc>::transfer(
         last.node->prev = first.node->prev;
         first.node->prev = temp;
     }
+}
+
+template<class T, class Alloc>
+list<T, Alloc>::list(size_type n, const value_type &val) {
+  empty_initialized();
+  fill_insert(begin(), n, val);
 }
 
 template<class T, class Alloc>
@@ -237,7 +257,7 @@ inline typename list<T, Alloc>::iterator list<T, Alloc>::erase(
     list_node *prev_node = position.node->prev;
     prev_node->next = next_node;
     next_node->prev = prev_node;
-    destroy_node(position);
+    destroy_node(position.node);
     return iterator(next_node);
 }
 
@@ -259,6 +279,100 @@ void list<T, Alloc>::clear() {
     }
     node->next = node;
     node->prev = node;
+}
+
+template<class T, class Alloc>
+void list<T, Alloc>::remove(const T &value) {
+  iterator first = begin();
+  iterator last = end();
+  while (first != last) {
+    iterator next = first;
+    ++next;
+    if (*first == value) erase(first);
+    first = next;
+  }
+}
+
+template<class T, class Alloc>
+void list<T, Alloc>::unique() {
+  iterator first = begin();
+  iterator last = end();
+  if (first == last) return;
+  iterator next = first;
+  while (++next != last) {
+    if (*first == *next) {
+      erase(next);
+      next = first;
+    } else
+      first = next;
+  }
+}
+
+template<class T, class Alloc>
+inline void list<T, Alloc>::splice(iterator position, list &, iterator i) {
+  iterator j = i;
+  ++j;
+  // i==pos 自身无法插于自身之前
+  // j==pos 已处于pos之前
+  if (position == i || position == j) return;
+  transfer(position, i, j);
+}
+
+// need two lists' elements are ordered
+template<class T, class Alloc>
+void list<T, Alloc>::merge(list &x) {
+  iterator first1 = begin();
+  iterator last1 = end();
+  iterator first2 = x.begin();
+  iterator last2 = x.end();
+
+  while (first1 != last1 && first2 != last2) {
+    if (*first2 < *first1) {
+      iterator next = first2;
+      transfer(first1, first2, ++next);
+      first2 = next;
+    } else
+      ++first1;
+  }
+  if (first2 != last2) transfer(last1, first2, last2);
+}
+
+template<class T, class Alloc>
+void list<T, Alloc>::reverse() {
+  // empty || size()==1
+  if (node->next == node || node->next->next == node) return;
+  iterator first = begin();
+  ++first;// begin自身并不需要移动，它将作为指示末元素的哨兵（确切地说，最终begin.node->next
+          // == end.node)
+  while (first != end()) {
+    iterator old = first;
+    ++first;
+    transfer(begin(), old, first);
+  }
+}
+
+// More information can be seen at
+// https://blog.csdn.net/qq276592716/article/details/7932483
+template<class T, class Alloc>
+void list<T, Alloc>::sort() {
+  if (node->next == node || node->next->next == node) return;
+  // 数据缓存区
+  // counter[n]中最多存放2^(n+1)个元素，若大于则与counter[n+1]作归并
+  list carry;
+  list counter[64];
+  int fill = 0;
+  while (!empty()) {
+    carry.splice(carry.begin(), *this, begin());
+    int i = 0;
+    while (i < fill && !counter[i].empty()) {
+      counter[i].merge(carry);
+      carry.swap(counter[i++]);
+    }
+    carry.swap(counter[i]);
+    if (i == fill) ++fill;
+  }
+  for (int i = 1; i < fill; ++i) counter[i].merge(counter[i - 1]);
+  swap(counter[fill - 1]);
 }
 
 }

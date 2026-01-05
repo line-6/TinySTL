@@ -1,5 +1,6 @@
 #include "SequenceContainers/Vector/stl_vector.h"
 #include <gtest/gtest.h>
+
 using namespace ::TinySTL;
 
 class VectorTest : public testing::Test {
