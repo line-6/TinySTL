@@ -30,7 +30,7 @@ class _deque_iterator {
     value_type *cur; // 当前 buffer 的当前元素
     value_type *first; // 当前 buffer 头
     value_type *last; // 当前 buffer 尾后
-    map_pointer node; // 中心 map
+    map_pointer node; // 当前 buffer 对应的 map 的节点
 
     static size_t buffer_size() { return _deque_buf_size(sizeof(value_type)); }
 
