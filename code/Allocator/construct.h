@@ -46,7 +46,7 @@ inline void destroy(ForwardIterator first, ForwardIterator last) {
 template<class ForwardIterator>
 inline void _destroy_aux(ForwardIterator first, ForwardIterator last,
                         false_type) {
-    for (; first != last; ++ first) destory(&*first);   //迭代器不是真正的地址
+    for (; first != last; ++ first) destroy(&*first);   //迭代器不是真正的地址
 }
 
 /*

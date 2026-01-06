@@ -14,6 +14,7 @@ inline size_t _deque_buf_size(size_t sz) {
 
 template<class T, class Ref, class Ptr>
 class _deque_iterator {
+public:
     using iterator = _deque_iterator<T, T &, T *>;
     using const_iterator = _deque_iterator<T, const T &, const T *>;
     using self = _deque_iterator;
@@ -103,6 +104,8 @@ class _deque_iterator {
         self temp = *this;
         return temp += n;
     }
+
+    self &operator-=(difference_type n) { return *this += -n; }
 
     self operator-(difference_type n) {
         self temp = *this;

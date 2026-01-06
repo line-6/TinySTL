@@ -80,7 +80,7 @@ private: // aux_interface for ctor
     void range_initialize(ForwardIterator first, ForwardIterator last,
                             forward_iterator_tag);
 
-private: // ctor && dtor
+public: // ctor && dtor
     deque() : start(), finish(), map(nullptr), map_size(0) {
         initialize_map(0);
     }
@@ -103,14 +103,14 @@ private: // ctor && dtor
     }
     ~deque();
 
-private: // copy
+public: // copy
     deque(const deque &rhs) {
         initialize_map(rhs.size());
         TinySTL::uninitialized_copy(rhs.begin(), rhs.end(), start);
     }
     deque &operator=(const deque &);
 
-private: // move
+public: // move
     deque(deque &&);
     deque &operator=(deque &&) noexcept;
 
@@ -148,7 +148,40 @@ public:// push && pop
     void pop_back();
     void pop_front();
 
-// TODO: insert
+private:// interface_aux for insert
+    void fill_insert(iterator, size_type, const value_type &);
+    template<class Integer>
+    void insert_dispatch(iterator pos, Integer n, Integer val, true_type) {
+        fill_insert(pos, static_cast<size_type>(n),
+                    static_cast<value_type>(val));
+    }
+    template<class InputIterator>
+    void insert_dispatch(iterator pos, InputIterator first, InputIterator last,
+                        false_type) {
+        range_insert_aux(pos, first, last,
+                        iterator_category_t<InputIterator>());
+    }
+    template<class InputIterator>
+    void range_insert_aux(iterator, InputIterator, InputIterator,
+                            input_iterator_tag);
+    template<class ForwardIterator>
+    void range_insert_aux(iterator, ForwardIterator, ForwardIterator,
+                            forward_iterator_tag);
+    iterator insert_aux(iterator, const value_type &);
+    void insert_aux(iterator, size_type, const value_type &);
+    template<class ForwardIterator>
+    void insert_aux(iterator, ForwardIterator, ForwardIterator, size_type);
+
+public: //insert
+    iterator insert(iterator, const value_type &);
+    iterator insert(iterator pos) { return insert(pos, value_type()); }
+    void insert(iterator pos, size_type n, const value_type &val) {
+        fill_insert(pos, n, val);
+    }
+    template<class InputIterator>
+    void insert(iterator pos, InputIterator first, InputIterator last) {
+        insert_dispatch(pos, first, last, is_integral<InputIterator>());
+    }
 
 public: // erase
     iterator erase(iterator);
@@ -168,7 +201,7 @@ template <class T, class Alloc>
 void deque<T, Alloc>::create_nodes(map_pointer nstart, map_pointer nfinish) {
     map_pointer cur;
     try {
-        for (cur = nstart; cur != nfinish; ++ cur) *cur = allocate_node();
+        for (cur = nstart; cur <= nfinish; ++ cur) *cur = allocate_node();
     } catch(std::exception &){
         destroy_nodes(nstart, nfinish);
         throw;
@@ -176,7 +209,7 @@ void deque<T, Alloc>::create_nodes(map_pointer nstart, map_pointer nfinish) {
 }
 template <class T, class Alloc>
 void deque<T, Alloc>::destroy_nodes(map_pointer nstart, map_pointer nfinish) {
-    for (map_pointer n = nstart; n != finish; ++ n) deallocate_node(*n);
+    for (map_pointer n = nstart; n < nfinish; ++ n) deallocate_node(*n);
 }
 
 template <class T, class Alloc>
@@ -384,7 +417,7 @@ inline deque<T, Alloc>::deque(deque &&rhs) {
 
 template<class T, class Alloc>
 deque<T, Alloc> &deque<T, Alloc>::operator=(deque &&rhs) noexcept {
-  //clear();
+  clear();
   swap(rhs);
   return *this;
 }
@@ -475,6 +508,224 @@ inline void deque<T, Alloc>::pop_front() {
 }
 
 template<class T, class Alloc>
+typename deque<T, Alloc>::iterator deque<T, Alloc>::insert_aux(
+    iterator pos, const value_type &val) {
+  difference_type index = pos - start;// 插入点之前的元素个数
+  value_type value_copy = val;
+  if (static_cast<size_type>(index) < size() / 2) {// 前移
+    // 插图见书
+    push_front(front());// 最前端加入哨兵以作标识，注意此时start发生了改变
+    iterator front1 = start;
+    ++front1;// 复制后自增效率较高
+    iterator front2 = front1;
+    ++front2;
+    pos = start + index;
+    iterator pos1 = pos;
+    ++pos1;
+    TinySTL::copy(front2, pos1, front1);// 移动元素
+  } else {
+    // 过程类似于上
+    push_back(back());
+    iterator back1 = finish;
+    --back1;
+    iterator back2 = back1;
+    --back2;
+    pos = start + index;
+    TinySTL::copy_backward(pos, back2, back1);
+  }
+  *pos = value_copy;
+  return pos;
+}
+
+template<class T, class Alloc>
+void deque<T, Alloc>::fill_insert(iterator pos, size_type n,
+                                  const value_type &val) {
+  if (pos.cur == start.cur) {
+    iterator new_start = reserve_elements_at_front(n);
+    try {
+      TinySTL::uninitialized_fill(new_start, start, val);
+      start = new_start;
+    } catch (std::exception &) {
+      destroy_nodes(new_start.node, start.node);
+    }
+  } else if (pos.cur == finish.cur) {
+    iterator new_finish = reserve_elements_at_back(n);
+    try {
+      TinySTL::uninitialized_fill(finish, new_finish, val);
+      finish = new_finish;
+    } catch (std::exception &) {
+      destroy_nodes(finish.node + 1, new_finish.node + 1);
+    }
+  } else
+    insert_aux(pos, n, val);
+}
+
+template<class T, class Alloc>
+void deque<T, Alloc>::insert_aux(iterator pos, size_type n,
+                                 const value_type &val) {
+  const difference_type elems_before = pos - start;
+  size_type length = size();
+  value_type value_copy = val;
+  if (elems_before < static_cast<difference_type>(length / 2)) {
+    iterator new_start = reserve_elements_at_front(n);
+    iterator old_start = start;
+    pos = start + elems_before;
+    try {
+      if (elems_before >= static_cast<difference_type>(n)) {
+        iterator start_n = start + static_cast<difference_type>(n);
+        TinySTL::uninitialized_copy(start, start_n, new_start);
+        start = new_start;
+        TinySTL::copy(start_n, pos, old_start);
+        TinySTL::fill(pos - static_cast<difference_type>(n), pos,
+                      value_copy);
+      } else {
+        TinySTL::uninitialized_copy_fill(start, pos, new_start, start,
+                                         value_copy);// extensions
+        start = new_start;
+        TinySTL::fill(old_start, pos, val);
+      }
+    } catch (std::exception &) {
+      destroy_nodes(new_start.node, start.node);
+      throw;
+    }
+  } else {
+    iterator new_finish = reserve_elements_at_back(n);
+    iterator old_finish = finish;
+    const difference_type elems_after =
+        static_cast<difference_type>(length) - elems_before;
+    pos = finish - elems_after;
+    try {
+      if (elems_after >= static_cast<difference_type>(n)) {
+        iterator finish_n = finish - static_cast<difference_type>(n);
+        TinySTL::uninitialized_copy(finish_n, finish, finish);
+        finish = new_finish;
+        TinySTL::copy_backward(pos, finish_n, old_finish);
+        TinySTL::fill(pos, pos + static_cast<difference_type>(n),
+                      value_copy);
+      } else {
+        TinySTL::uninitialized_fill_copy(
+            finish, pos + static_cast<difference_type>(n), value_copy,
+            pos,
+            finish);// extensions
+        finish = new_finish;
+        TinySTL::fill(pos, old_finish, value_copy);
+      }
+    } catch (std::exception &) {
+      destroy_nodes(finish.node + 1, new_finish.node + 1);
+      throw;
+    }
+  }
+}
+
+template<class T, class Alloc>
+template<class ForwardIterator>
+void deque<T, Alloc>::insert_aux(iterator pos, ForwardIterator first,
+                                 ForwardIterator last, size_type n) {
+  const difference_type elems_before = pos - start;
+  size_type length = size();
+  if (elems_before < static_cast<difference_type>(length / 2)) {
+    iterator new_start = reserve_elements_at_front(n);
+    iterator old_start = start;
+    pos = start + elems_before;
+    try {
+      if (elems_before >= static_cast<difference_type>(n)) {
+        iterator start_n = start + static_cast<difference_type>(n);
+        TinySTL::uninitialized_copy(start, start_n, new_start);
+        start = new_start;
+        TinySTL::copy(start_n, pos, old_start);
+        TinySTL::copy(first, last,
+                      pos - static_cast<difference_type>(n));
+      } else {
+        ForwardIterator mid = first;
+        TinySTL::advance(
+            mid, static_cast<difference_type>(n) - elems_before);
+        TinySTL::uninitialized_copy_copy(start, pos, first, mid,
+                                         new_start);// extensions
+        start = new_start;
+        TinySTL::copy(mid, last, old_start);
+      }
+    } catch (std::exception &) {
+      destroy_nodes(new_start.node, start.node);
+      throw;
+    }
+  } else {
+    iterator new_finish = reserve_elements_at_back(n);
+    iterator old_finish = finish;
+    const difference_type elems_after =
+        static_cast<difference_type>(length) - elems_before;
+    pos = finish - elems_after;
+    try {
+      if (elems_after >= static_cast<difference_type>(n)) {
+        iterator finish_n = finish - static_cast<difference_type>(n);
+        TinySTL::uninitialized_copy(finish_n, finish, finish);
+        finish = new_finish;
+        TinySTL::copy_backward(pos, finish_n, old_finish);
+        TinySTL::copy(first, last, pos);
+      } else {
+        ForwardIterator mid = first;
+        TinySTL::advance(mid, elems_after);
+        TinySTL::uninitialized_copy_copy(mid, last, pos, finish,
+                                         finish);// extensions
+        finish = new_finish;
+        TinySTL::copy(first, mid, pos);
+      }
+    } catch (std::exception &) {
+      destroy_nodes(finish.node + 1, new_finish.node + 1);
+      throw;
+    }
+  }
+}
+
+template<class T, class Alloc>
+template<class InputIterator>
+void deque<T, Alloc>::range_insert_aux(iterator pos, InputIterator first,
+                                       InputIterator last, input_iterator_tag) {
+  TinySTL::copy(first, last, inserter(*this, pos));// 插入迭代器
+}
+
+template<class T, class Alloc>
+template<class ForwardIterator>
+void deque<T, Alloc>::range_insert_aux(iterator pos, ForwardIterator first,
+                                       ForwardIterator last,
+                                       forward_iterator_tag) {
+  size_type n = TinySTL::distance(first, last);
+  if (pos.cur == start.cur) {
+    iterator new_start = reserve_elements_at_front(n);
+    try {
+      TinySTL::uninitialized_copy(first, last, new_start);
+      start = new_start;
+    } catch (std::exception &) {
+      destroy_nodes(new_start.node, start.node);
+      throw;
+    }
+  } else if (pos.cur == finish.cur) {
+    iterator new_finish = reserve_elements_at_back(n);
+    try {
+      TinySTL::uninitialized_copy(first, last, finish);
+      finish = new_finish;
+    } catch (std::exception &) {
+      destroy_nodes(finish.node + 1, new_finish.node + 1);
+      throw;
+    }
+  } else
+    insert_aux(pos, first, last, n);
+}
+
+template<class T, class Alloc>
+typename deque<T, Alloc>::iterator deque<T, Alloc>::insert(
+    iterator pos, const value_type &value) {
+  if (pos.cur == start.cur) {
+    push_front(value);
+    return start;
+  } else if (pos.cur == finish.cur) {
+    push_back(value);
+    iterator temp = finish - 1;
+    return temp;
+  } else
+    return insert_aux(pos, value);
+}
+
+template<class T, class Alloc>
 inline void deque<T, Alloc>::clear() {
   // 清空所有node，保留唯一缓冲区（需要注意的是尽管map可能存有更多节点，但有[start,finish]占据内存
   for (map_pointer node = start.node + 1; node < finish.node;
@@ -548,8 +799,47 @@ void deque<T, Alloc>::resize(size_type new_size, const value_type &val) {
 }
 
 template<class T, class Alloc>
+void deque<T, Alloc>::swap(deque &rhs) noexcept {
+  TinySTL::swap(start, rhs.start);
+  TinySTL::swap(finish, rhs.finish);
+  TinySTL::swap(map, rhs.map);
+  TinySTL::swap(map_size, rhs.map_size);
+}
+
+template<class T, class Alloc>
 inline void swap(deque<T, Alloc> &lhs, deque<T, Alloc> &rhs) noexcept {
   lhs.swap(rhs);
+}
+
+template<class T, class Alloc>
+inline bool operator==(const deque<T, Alloc> &lhs, const deque<T, Alloc> &rhs) {
+  return lhs.size() == rhs.size() && TinySTL::equal(lhs.begin(), lhs.end(), rhs.begin());
+}
+
+template<class T, class Alloc>
+inline bool operator!=(const deque<T, Alloc> &lhs, const deque<T, Alloc> &rhs) {
+  return !(lhs == rhs);
+}
+
+template<class T, class Alloc>
+inline bool operator<(const deque<T, Alloc> &lhs, const deque<T, Alloc> &rhs) {
+  return TinySTL::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(),
+                                          rhs.end());
+}
+
+template<class T, class Alloc>
+inline bool operator>(const deque<T, Alloc> &lhs, const deque<T, Alloc> &rhs) {
+  return rhs < lhs;
+}
+
+template<class T, class Alloc>
+inline bool operator<=(const deque<T, Alloc> &lhs, const deque<T, Alloc> &rhs) {
+  return !(rhs < lhs);
+}
+
+template<class T, class Alloc>
+inline bool operator>=(const deque<T, Alloc> &lhs, const deque<T, Alloc> &rhs) {
+  return !(lhs < rhs);
 }
 
 }
