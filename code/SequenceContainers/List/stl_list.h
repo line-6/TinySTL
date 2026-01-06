@@ -3,10 +3,7 @@
 #include "Allocator/allocator.h"
 #include "Allocator/uninitialized.h"
 #include "List/stl_list_node.h"
-#include "construct.h"
-#include "stl_iterator.h"
 #include "stl_list_iterator.h"
-#include "type_traits.h"
 #include <exception>
 #include <initializer_list>
 
