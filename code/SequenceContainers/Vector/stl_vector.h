@@ -2,12 +2,7 @@
 
 #include "Allocator/allocator.h"
 #include "Allocator/uninitialized.h"
-#include "algobase/stl_algobase.h"
-#include "construct.h"
-#include "stl_iterator.h"
-#include "type_traits.h"
 #include <cstddef>
-#include <exception>
 #include <initializer_list>
 
 namespace TinySTL {
