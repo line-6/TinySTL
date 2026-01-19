@@ -3,37 +3,41 @@
 #include <cstddef>
 #include <string>
 
-namespace TinySTL{
-// 计算元素位置
+namespace TinySTL {
 
-template <class Key>
-struct hash{};
+// hash function是计算元素位置的函数,其本质为取模
+template<class Key>
+struct hash {};
 
-inline size_t _stl_hash_string(const char* s) {
-    unsigned long h = 0;
-    for(; *s; s++) h = 5 * h + *s;
-    return static_cast<size_t>(h);
+// 显然，hash并不能支持所有类型，针对某些自定义类型，应当自主撰写函数对象模板全特化版本
+
+// 对const char* 提供字符串转换函数
+inline size_t _stl_hash_string(const char *s) {
+  unsigned long h = 0;
+  for (; *s; ++s) h = 5 * h + *s;
+  return static_cast<size_t>(h);
 }
 
-template <>
-struct hash<const char *> {
-    size_t operator()(const char *s) const noexcept{
-        return _stl_hash_string(s);
-    }
-};
-
-template <>
+template<>
 struct hash<char *> {
-    size_t operator()(const char *s) const noexcept{
-        return _stl_hash_string(s);
-    }
+  size_t operator()(const char *s) const noexcept {
+    return _stl_hash_string(s);
+  }
 };
 
-template <>
+template<>
+struct hash<const char *> {
+  size_t operator()(const char *s) const noexcept {
+    return _stl_hash_string(s);
+  }
+};
+
+// add hash() for std::string
+template<>
 struct hash<std::string> {
-    size_t operator()(std::string s) const noexcept {
-        return _stl_hash_string(s.c_str());
-    }
+  size_t operator()(const std::string &str) const noexcept {
+    return _stl_hash_string(str.c_str());
+  }
 };
 
 template<>
@@ -81,5 +85,4 @@ struct hash<unsigned long> {
   size_t operator()(unsigned long x) const noexcept { return x; }
 };
 
-
-}
+}// namespace MiniSTL
