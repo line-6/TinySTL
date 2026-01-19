@@ -490,4 +490,4 @@ constexpr bool is_register_pass_v<T &> = true;
 template<typename T>
 constexpr bool is_register_pass_v<T &&> = true;
 
-}// namespace MiniSTL
+}

@@ -85,4 +85,4 @@ struct hash<unsigned long> {
   size_t operator()(unsigned long x) const noexcept { return x; }
 };
 
-}// namespace MiniSTL
+}

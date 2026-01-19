@@ -152,6 +152,7 @@ private: // aux_interface for insert
     void fill_insert(iterator, size_type, const value_type &);
 public: // TODO : insert
     iterator insert(iterator, const value_type &);
+    void insert(iterator pos, size_type n, const value_type &val);
 private: // aux_interface for assign
 
 public: // TODO: assign
@@ -287,7 +288,7 @@ inline void vector<T, Alloc>::insert_aux(iterator position, const value_type &va
                 position, finish, new_finish); // copy position-after segment
         } catch (std::exception &) {
             // commit or rollback
-            destroy(new_start, new_finish);
+            TinySTL::destroy(new_start, new_finish);
             data_allocator::deallocate(new_start, new_size);
             throw;
         }
@@ -354,6 +355,12 @@ inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(
   } else
     insert_aux(position, value);
   return begin() + n;
+}
+
+template<class T, class Alloc>
+void vector<T, Alloc>::insert(
+    iterator position, size_type n, const value_type &value) {
+  fill_insert(position, n, value);
 }
 
 }

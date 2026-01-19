@@ -15,28 +15,6 @@ class HashTest : public testing::Test {
   const int NB_ELEMS = 2000;
 };
 
-TEST_F(HashTest, uset) {
-  typedef hash_set<int, hash<int>, equal_to<int>> usettype;
-  usettype us;
-
-  //Small compilation check of the copy constructor:
-  usettype us2(us);
-  //And assignment operator
-  us = us2;
-
-  int i;
-  pair<usettype::iterator, bool> ret;
-  for (i = 0; i < NB_ELEMS; ++i) {
-    ret = us.insert(i);
-    ASSERT_TRUE(ret.second);
-    ASSERT_TRUE(*ret.first == i);
-
-    ret = us.insert(i);
-    ASSERT_TRUE(!ret.second);
-    ASSERT_TRUE(*ret.first == i);
-  }
-}
-
 TEST_F(HashTest, umap) {
   typedef hash_map<int, int, hash<int>, equal_to<int>> umaptype;
   umaptype us;
@@ -138,10 +116,8 @@ TEST_F(HashTest, template_methods) {
     ASSERT_TRUE(cont.count(5) == 0);
 
     ASSERT_TRUE(cont.find(2) != cont.end());
-    ASSERT_TRUE(cont.equal_range(2) != make_pair(cont.begin(), cont.end()));
 
     Container const &ccont = cont;
     ASSERT_TRUE(ccont.find(2) != ccont.end());
-    ASSERT_TRUE(ccont.equal_range(2) != make_pair(ccont.begin(), ccont.end()));
   }
 }

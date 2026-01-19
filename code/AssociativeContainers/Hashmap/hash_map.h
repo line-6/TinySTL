@@ -112,13 +112,6 @@ class hash_map {
   iterator find(const key_type &key) { return rep.find(key); }
   const_iterator find(const key_type &key) const { return rep.find(key); }
   size_type count(const key_type &key) const { return rep.count(key); }
-  pair<iterator, iterator> equal_range(const key_type &key) {
-    return rep.equal_range(key);
-  }
-  pair<const_iterator, const_iterator> equal_range(
-      const key_type &key) const {
-    return rep.equal_range(key);
-  }
 };
 
 template<class Key, class Value, class HashFcn, class EqualKey, class Alloc>
@@ -141,4 +134,4 @@ inline void swap(hash_map<Key, Value, HashFcn, EqualKey, Alloc> &lhs,
   lhs.swap(rhs);
 }
 
-}// namespace MiniSTL
+}

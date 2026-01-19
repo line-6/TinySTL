@@ -11,7 +11,7 @@ include_directories(${PROJECT_SOURCE_DIR}/code)
 
 add_subdirectory(code)
 
-if (ENABLE_MINISTL_TEST)
+if (ENABLE_TinySTL_TEST)
     find_package(GTest REQUIRED)
     add_subdirectory("test")
 endif()

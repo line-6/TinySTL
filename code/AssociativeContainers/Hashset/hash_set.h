@@ -95,9 +95,6 @@ class hash_set {
  public:// find
   iterator find(const key_type &key) const { return rep.find(key); }
   size_type count(const key_type &key) const { return rep.count(key); }
-  pair<iterator, iterator> equal_range(const key_type &key) const {
-    return rep.equal_range(key);
-  }
 };
 
 template<class Value, class HashFcn, class EqualKey, class Alloc>
@@ -118,4 +115,4 @@ inline void swap(hash_set<Value, HashFcn, EqualKey, Alloc> &lhs,
   lhs.swap(rhs);
 }
 
-}// namespace MiniSTL
+}
